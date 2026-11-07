@@ -122,18 +122,18 @@ sleep 8
 types_are_there "after starting again"
 
 # 3. the check finds nothing wrong
+echo "smoke ($BACKEND): home folder on $(stat -f -c %T "$HOME")"
 "$APP" --check > "$OUT/check.txt" 2>&1
 tail -2 "$OUT/check.txt"
 grep -q 'No problems found' "$OUT/check.txt" || { cat "$OUT/check.txt"; fail "the check found problems"; }
 
-# 4. relations, through the server in the AppImage. Two tests are known to fail, and one depends on the file system:
-#  - a program that isn't a BApplication (this test) is credited as Hokku's reply helper, so the provenance tests fail,
-#  - ext4 keeps about a block of attributes for a file, so the list of 128 targets can't fit there.
+# 4. relations, through the server in the AppImage. Two tests are known to fail: a program that isn't a BApplication (this
+#    test) is credited as Hokku's reply helper, so the provenance tests do.
 if [ -n "$RELATION_TEST" ]; then
 	mkdir -p "$HOME/test"
 	TEST_DIR=$HOME/test timeout 180 "$RELATION_TEST" > "$OUT/relation-test.txt" 2>&1
 	tail -1 "$OUT/relation-test.txt"
-	UNEXPECTED=$(grep -E '^FAIL ' "$OUT/relation-test.txt" | grep -vE 'FAIL (ARelationKnowsWhoMadeIt|ARelationFromBeforeProvenanceLearnsItsCreatorWhenItIsMadeAgain|AFullListIsRefusedAndNothingIsChanged)$')
+	UNEXPECTED=$(grep -E '^FAIL ' "$OUT/relation-test.txt" | grep -vE 'FAIL (ARelationKnowsWhoMadeIt|ARelationFromBeforeProvenanceLearnsItsCreatorWhenItIsMadeAgain)$')
 	[ -z "$UNEXPECTED" ] || { echo "$UNEXPECTED"; fail "relation tests failed"; }
 	grep -qE '^26 test|^[0-9]+ test' "$OUT/relation-test.txt" || fail "the relation tests did not finish"
 	kill -0 "$SERVER" 2>/dev/null || fail "the server died in the relation tests"
