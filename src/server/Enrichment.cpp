@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: MIT
  * SPDX-FileCopyrightText: 2026 SEN Labs e.U.
  */
+#include "../server/RefName.h"
 #include "Enrichment.h"
 
 #include <AppFileInfo.h>
@@ -153,7 +154,7 @@ Handle(const BMessage& request, BString* detail)
 			unhandled++;
 			if (!unhandledNames.IsEmpty())
 				unhandledNames << ", ";
-			unhandledNames << ref.name;
+			unhandledNames << sen::RefName(ref);
 			unhandledType = type;
 			continue;
 		}

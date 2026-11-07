@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 SEN Labs e.U.
  */
 
+#include "../server/RefName.h"
 #include "SenUi.h"
 
 #include "AboutWindow.h"
@@ -401,8 +402,9 @@ SenUi::_SetContext(const BMessage* message)
 	BDirectory contexts(folder.Path());
 	entry_ref ref;
 	while (contexts.GetNextRef(&ref) == B_OK) {
-		if (strcmp(ref.name, name) != 0)
-			SetSticky(ref.name, false);
+		const BString context = sen::RefName(ref);
+		if (context != name)
+			SetSticky(context.String(), false);
 	}
 
 	BMessage change;

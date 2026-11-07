@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 SEN Labs e.U.
  */
 
+#include "../server/RefName.h"
 #include "DeskbarView.h"
 
 #include "../ui/Knot.h"
@@ -348,7 +349,7 @@ DeskbarView::_AddContextMenu(BMenu* menu)
 		while (directory.GetNextRef(&ref) == B_OK) {
 			BEntry entry(&ref, true);
 			if (entry.IsDirectory())
-				names.push_back(ref.name);
+				names.push_back(sen::RefName(ref).String());
 		}
 	}
 	std::sort(names.begin(), names.end(), [](const std::string& a, const std::string& b) { return strcasecmp(a.c_str(), b.c_str()) < 0; });
@@ -488,7 +489,7 @@ DeskbarView::_AddOntologyMenu(BMenu* menu)
 		ontologies->AddSeparatorItem();
 
 	for (const entry_ref& ref : installed) {
-		BMenu* ontology = new BMenu(ref.name);
+		BMenu* ontology = new BMenu(sen::RefName(ref).String());
 		BMessage* show = new BMessage(sen::cmd::kUiOpenOntology);
 		show->AddRef("refs", &ref);
 

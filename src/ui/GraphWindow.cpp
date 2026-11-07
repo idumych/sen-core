@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 SEN Labs e.U.
  */
 
+#include "../server/RefName.h"
 #include "GraphWindow.h"
 
 #include "../config/SenConfigHandler.h"
@@ -1427,7 +1428,7 @@ GraphWindow::_ApplyFocus()
 	}
 	if (id.empty()) {
 		// not an object of SEN (it has no SEN:ID), or not read; the file is looked for again when the graph changes (a file gets its id and relations when it is enriched)
-		BString status(fFocusRef.name);
+		BString status(sen::RefName(fFocusRef));
 		status << " has no relations.";
 		fStatus->SetText(status.String());
 		return;
@@ -1444,7 +1445,7 @@ GraphWindow::_ApplyFocus()
 		}
 		if (fAll.IndexOf(id) < 0 && !fTruncated) {
 			// (everything is shown and the file is not in it: nothing is related to it)
-			BString status(fFocusRef.name);
+			BString status(sen::RefName(fFocusRef));
 			status << " has no relations.";
 			fStatus->SetText(status.String());
 		}
@@ -1454,7 +1455,7 @@ GraphWindow::_ApplyFocus()
 	fView->Focus(id.c_str());
 	const int32 node = fView->Graph().IndexOf(id);
 	if (node >= 0 && fView->Graph().Nodes()[node].degree == 0) {
-		BString status(fFocusRef.name);
+		BString status(sen::RefName(fFocusRef));
 		status << " has no relations.";
 		fStatus->SetText(status.String());
 	}

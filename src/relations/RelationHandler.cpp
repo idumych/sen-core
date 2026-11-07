@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2020-2026 SEN Labs e.U.
  */
 
+#include "../server/RefName.h"
 #include "../server/Dump.h"
 #include <AppFileInfo.h>
 #include <cassert>
@@ -895,7 +896,7 @@ BString RelationHandler::DisplayNameOf(const entry_ref& ref)
                 return name;
         }
     }
-    return BString(ref.name);
+    return sen::RefName(ref);
 }
 
 status_t RelationHandler::ResolveRelationTargets(BStringList* ids, BMessage *idsToRefs)

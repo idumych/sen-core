@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 SEN Labs e.U.
  */
 
+#include "../server/RefName.h"
 #include "SenSettingsWindow.h"
 
 #include "../relations/QueryUtil.h"
@@ -321,7 +322,7 @@ PluginName(const entry_ref& ref, BString* signature)
 	version_info version;
 	if (info.InitCheck() == B_OK && info.GetVersionInfo(&version, B_APP_VERSION_KIND) == B_OK && version.short_info[0] != '\0')
 		return BString(version.short_info);
-	return BString(ref.name);
+	return sen::RefName(ref);
 }
 
 

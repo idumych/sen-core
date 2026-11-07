@@ -3,6 +3,7 @@
  * SPDX-FileCopyrightText: 2026 SEN Labs e.U.
  */
 
+#include "../server/RefName.h"
 #include "GraphData.h"
 
 #include "../relations/IdListAttr.h"
@@ -51,11 +52,11 @@ NameOfNode(const entry_ref& ref, BNode& node, std::string* label, std::string* g
 	if (!stands.empty()) {
 		*label = sen::lookup::NameOfType(stands.c_str());
 		if (*label == stands)
-			*label = ref.name;	// (a type without a description)
+			*label = sen::RefName(ref).String();	// (a type without a description)
 		*group = "type: " + stands.substr(0, stands.find('/'));
 		return;
 	}
-	*label = ref.name;
+	*label = sen::RefName(ref).String();
 	*group = sen::lookup::TypeOf(node);
 }
 
