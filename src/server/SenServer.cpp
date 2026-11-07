@@ -12,6 +12,11 @@
 #include "../config/Library.h"
 #include "../deskbar/DeskbarView.h"
 #include "SenServer.h"
+
+#ifdef APP_COSMOE
+#include <fcntl.h>
+#include <sys/stat.h>
+#endif
 #include "Reply.h"
 #include "../relations/RelationHandler.h"
 #include "../ui/FileTypesLink.h"
@@ -653,7 +658,18 @@ void SenServer::MessageReceived(BMessage* message)
                                 BNode holderNode(&holder);
                                 if (holderNode.GetStat(&st) != B_OK)
                                     continue;
+#ifdef APP_COSMOE
+                                // (Linux has no st_crtim, and st_ctim is the last change: any attribute written
+                                // would make the original look younger than its copy)
+                                struct statx birth;
+                                int64 created = st.st_mtim.tv_sec * 1000000000LL + st.st_mtim.tv_nsec;
+                                if (statx(AT_FDCWD, BPath(&holder).Path(), AT_SYMLINK_NOFOLLOW, STATX_BTIME, &birth) == 0
+                                        && (birth.stx_mask & STATX_BTIME) != 0) {
+                                    created = (int64) birth.stx_btime.tv_sec * 1000000000LL + birth.stx_btime.tv_nsec;
+                                }
+#else
                                 int64 created = (int64) st.st_crtim.tv_sec * 1000000000LL + st.st_crtim.tv_nsec;
+#endif
                                 byAge.push_back({{created, (int64) st.st_ino}, holder});
                             }
                             std::sort(byAge.begin(), byAge.end(),

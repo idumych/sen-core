@@ -67,6 +67,8 @@ status_t SenConfigHandler::LoadSettings(BMessage* settingsMessage)
         status = InitDefaultSettings(&path, settingsMessage);
         if (status == B_OK) {
             spdlog::info("successfully initialized settings.");
+            // (on a first run the folder was not there when fSettingsDir was set)
+            fSettingsDir->SetTo(path.Path());
             status = SaveSettings(settingsMessage);
         } else {
             spdlog::error("failed to initialize settings: {}", strerror(status));
@@ -251,7 +253,7 @@ bool SenConfigHandler::EnsurePaths(const BPath& settingsPath, BMessage* settings
 
 status_t SenConfigHandler::InitDefaultSettings(BPath* settingsPath, BMessage* settingsMessage)
 {
-    status_t status;
+    status_t status = B_OK;
 
     spdlog::info("setting up default settings in {}" B_UTF8_ELLIPSIS, settingsPath->Path());
 
