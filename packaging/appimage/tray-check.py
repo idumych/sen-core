@@ -80,6 +80,19 @@ def windows():
     return names
 
 
+def wait_for_window(context, title, seconds):
+    """Waits for a window with this title, says how long that took, and what was running if it took long."""
+    start = time.monotonic()
+    found = pump(context, min(10, seconds), lambda: title in windows())
+    if not found:
+        print(f"tray: no {title!r} window after 10 s, the busiest threads:")
+        busiest = subprocess.run(["ps", "-eLo", "pcpu,stat,wchan:20,comm", "--sort=-pcpu"], capture_output=True, text=True)
+        print("\n".join(busiest.stdout.splitlines()[:12]))
+        found = pump(context, seconds - 10, lambda: title in windows())
+    print(f"tray: {title!r} window " + (f"after {time.monotonic() - start:.1f} s" if found else f"not there after {seconds} s") + f", all: {windows()}")
+    return found
+
+
 def labels(layout):
     """The labels in a dbusmenu layout, (id, properties, children), with their children."""
     _, properties, children = layout
@@ -156,6 +169,32 @@ def main():
             print(f"tray: ContextMenu: {error.message}")
         ok = pump(context, 20, fetch_menu)
         print(f"tray: menu items: {shown}")
+
+        # A tray waits half a second for a menu that it asks for, then shows the one it has. Timed by the menu's revision,
+        # since AboutToShow itself stops waiting then. With an ontology installed: on a first run that takes some seconds.
+        def revision():
+            result = bus.call_sync(name, menu_path, "com.canonical.dbusmenu", "GetLayout",
+                                   GLib.Variant("(iias)", (0, -1, [])), None, Gio.DBusCallFlags.NONE, 5000, None)
+            return result.unpack()[0]
+
+        # (once a second: a menu asked for while one is being made waits, and everything else with it)
+        installed = False
+        for _ in range(30):
+            installed = fetch_menu() and "core" in shown
+            pump(context, 1)
+            if installed:
+                break
+        before = revision()
+        start = time.monotonic()
+        bus.call_sync(name, menu_path, "com.canonical.dbusmenu", "AboutToShow", GLib.Variant("(i)", (0,)), None,
+                      Gio.DBusCallFlags.NONE, 5000, None)
+        pump(context, 60, lambda: revision() != before)
+        seconds = time.monotonic() - start
+        print(f"tray: a menu takes {seconds:.2f} s (ontology installed: {installed}), {len(shown)} items: {shown}")
+        if not installed:
+            failures.append("the ontology didn't get into the menu")
+        if seconds > 1:
+            failures.append(f"the menu took {seconds:.1f} s")
         if not ok:
             failures.append(f"the menu lacks some of {wanted}")
 
@@ -176,21 +215,15 @@ def main():
 
         # it does what it says: a window opens...
         if ok and os.environ.get("COSMOE_BACKEND") == "x11":
-            before = windows()
             click("Info")
-            opened = pump(context, 15, lambda: any(w not in before for w in windows()))
-            print(f"tray: after Info: {[w for w in windows() if w not in before]}")
-            if not opened:
+            if not wait_for_window(context, "SEN Info", 60):
                 failures.append("Info opened no window")
 
         # ...and Quit stops the server, the only way a desktop user has of doing that. It asks first, in a window that has
         # its default button on Quit. (Keys and windows can only be reached from here on X11.)
         if ok and os.environ.get("COSMOE_BACKEND") == "x11":
-            before = windows()
             click("Quit")
-            asked = pump(context, 15, lambda: any(w not in before for w in windows()))
-            print(f"tray: after Quit: {[w for w in windows() if w not in before]}")
-            if not asked:
+            if not wait_for_window(context, "SEN", 60):
                 failures.append("Quit asked nothing")
             else:
                 pump(context, 1)

@@ -39,6 +39,7 @@
 #include <strings.h>
 
 #include <algorithm>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -396,23 +397,56 @@ DeskbarView::_AddContextMenu(BMenu* menu)
 }
 
 
-/** The types that an ontology provides (the targets of its relations that are types of the MIME database of the user), as MIME types. */
-static std::vector<std::string>
-TypesOfOntology(const entry_ref& ontology)
+/**
+ * The types of the MIME database of the user by the SEN:ID of their files. A menu is made on each click and has to be there at once: an ontology has
+ * many relations, and looking up each target with a query, over all volumes, takes long where a volume has no index of the attribute (Linux).
+ */
+static std::map<std::string, std::string>
+TypesById()
 {
-	std::vector<std::string> types;
+	std::map<std::string, std::string> types;
 	BPath mimeDb;
 	if (find_directory(B_USER_SETTINGS_DIRECTORY, &mimeDb) != B_OK || mimeDb.Append("mime_db") != B_OK)
 		return types;
-	const size_t prefix = strlen(mimeDb.Path()) + 1;
 
-	std::vector<entry_ref> targets;
-	if (sen::lookup::Targets(ontology, &targets) != B_OK)
+	const auto add = [&types](const BEntry& entry, const std::string& type) {
+		BNode node(&entry);
+		BString id;
+		if (node.ReadAttrString(sen::attr::kId, &id) == B_OK && !id.IsEmpty())
+			types[id.String()] = type;
+	};
+	BDirectory database(mimeDb.Path());
+	BEntry group;
+	while (database.GetNextEntry(&group) == B_OK) {
+		char groupName[B_FILE_NAME_LENGTH];
+		if (group.GetName(groupName) != B_OK)
+			continue;
+		add(group, groupName);
+		BDirectory members(&group);
+		BEntry member;
+		while (members.InitCheck() == B_OK && members.GetNextEntry(&member) == B_OK) {
+			char memberName[B_FILE_NAME_LENGTH];
+			if (member.GetName(memberName) == B_OK)
+				add(member, std::string(groupName) + "/" + memberName);
+		}
+	}
+	return types;
+}
+
+
+/** The types that an ontology provides (the targets of its relations that are types of the MIME database of the user), as MIME types. */
+static std::vector<std::string>
+TypesOfOntology(const entry_ref& ontology, const std::map<std::string, std::string>& typesById)
+{
+	std::vector<std::string> types;
+	BNode node(&ontology);
+	std::vector<std::string> targets;
+	if (sen::lookup::TargetIds(node, &targets) != B_OK)
 		return types;
-	for (const entry_ref& target : targets) {
-		BPath path(&target);
-		if (path.InitCheck() == B_OK && strncmp(path.Path(), mimeDb.Path(), prefix - 1) == 0 && strlen(path.Path()) > prefix)
-			types.push_back(path.Path() + prefix);
+	for (const std::string& target : targets) {
+		const auto type = typesById.find(target);
+		if (type != typesById.end())
+			types.push_back(type->second);
 	}
 	return types;
 }
@@ -488,6 +522,7 @@ DeskbarView::_AddOntologyMenu(BMenu* menu)
 	if (!installed.empty())
 		ontologies->AddSeparatorItem();
 
+	const std::map<std::string, std::string> typesById = installed.empty() ? std::map<std::string, std::string>() : TypesById();
 	for (const entry_ref& ref : installed) {
 		BMenu* ontology = new BMenu(sen::RefName(ref).String());
 		BMessage* show = new BMessage(sen::cmd::kUiOpenOntology);
@@ -495,7 +530,7 @@ DeskbarView::_AddOntologyMenu(BMenu* menu)
 
 		// its types, with the names that people read (the short description of the type)
 		std::vector<std::pair<std::string, std::string>> named;
-		for (const std::string& type : TypesOfOntology(ref)) {
+		for (const std::string& type : TypesOfOntology(ref, typesById)) {
 			char shortName[B_MIME_TYPE_LENGTH];
 			std::string name = BMimeType(type.c_str()).GetShortDescription(shortName) == B_OK && shortName[0] != '\0'
 				? shortName : type.substr(type.find('/') + 1);

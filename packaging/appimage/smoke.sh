@@ -159,7 +159,7 @@ SERVER=""
 
 # 6. the desktop's tray: a tray of its own on a D-Bus session of its own
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-if ! timeout 120 dbus-run-session -- python3 -I "$SCRIPT_DIR/tray-check.py" "$APP" "$OUT"; then
+if ! timeout 240 dbus-run-session -- python3 -I "$SCRIPT_DIR/tray-check.py" "$APP" "$OUT"; then
 	tail -20 "$OUT/tray-app.log"
 	pkill -x TrayExport 2>/dev/null
 	stop
