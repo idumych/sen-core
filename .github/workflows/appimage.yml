@@ -69,7 +69,7 @@ jobs:
       - name: Smoke-test tools
         run: |
           sudo DEBIAN_FRONTEND=noninteractive timeout 300 apt-get install -y --no-install-recommends \
-            sway xvfb openbox xdotool
+            sway xvfb openbox xdotool dbus python3-gi
 
       - name: X11 smoke test (Xvfb)
         timeout-minutes: 10

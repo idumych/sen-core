@@ -320,6 +320,21 @@ void SenServer::InstallDeskbarItem()
     if (getenv("SEN_NO_DESKBAR") != NULL)
         return;
 
+#ifdef APP_COSMOE
+    // A Linux desktop has no Deskbar to wait for and no way to load an item from a file: BDeskbar takes the view, and shows it
+    // in Hokku's Deskbar if that runs and else in the desktop's own tray, through TrayExport (which it starts).
+    {
+        BDeskbar deskbar;
+        if (deskbar.HasItem(sen::deskbar::kItemName))
+            deskbar.RemoveItem(sen::deskbar::kItemName);
+        sen::deskbar::DeskbarView view(BRect(0, 0, 21, 21));
+        status_t status = deskbar.AddItem(&view);
+        if (status != B_OK)
+            spdlog::warn("could not add the SEN item to the tray: {}", strerror(status));
+        return;
+    }
+#endif
+
     BDeskbar deskbar;
     if (!deskbar.IsRunning()) {
         // the server can be started before the Deskbar (the launch daemon starts both): try again for a while

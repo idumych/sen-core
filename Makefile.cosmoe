@@ -41,9 +41,10 @@ all: bin/sen_server bin/sen_settings bin/sen_mime
 
 test-programs: bin/relation-test
 
+# (--export-dynamic: the tray's item is a replicant, found by the Instantiate() of its class in this program)
 bin/sen_server: $(SERVER_OBJS) $(OBJ)/sen_server.rsrc.o
 	@mkdir -p bin
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(CXX) $(LDFLAGS) -Wl,--export-dynamic -o $@ $^ $(LIBS)
 
 bin/sen_settings: $(SETTINGS_OBJS) $(OBJ)/sen_settings.rsrc.o
 	@mkdir -p bin

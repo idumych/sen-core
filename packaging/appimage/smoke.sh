@@ -9,6 +9,8 @@
 #   sh packaging/appimage/smoke.sh <AppImage> <x11|wayland> <OUT_DIR> [relation-test]
 #
 # Run it from a folder on a real disk: the home folder of the test is made here, and a tmpfs is no volume for a query.
+# It stops any sen_server it can see, and Hokku finds a program by a socket, so next to a server that is in use it belongs in
+# namespaces of its own: unshare -r -n -p -f --mount-proc sh -c 'ip link set lo up; sh packaging/appimage/smoke.sh ...'
 set -u
 APP=$(readlink -f "$1")
 BACKEND=$2
@@ -17,10 +19,15 @@ RELATION_TEST=${4:+$(readlink -f "$4")}
 
 fail() { echo "smoke ($BACKEND): FAIL: $*"; [ -f "$OUT/app.log" ] && tail -30 "$OUT/app.log"; stop; exit 1; }
 SERVER=""; WM=""; XSERVER=""; COMPOSITOR=""
-stop() {
+stop_server() {
 	[ -z "$SERVER" ] || kill "$SERVER" 2>/dev/null
 	sleep 1
 	pkill -TERM -x sen_server 2>/dev/null
+	for i in $(seq 40); do pgrep -x sen_server >/dev/null || break; sleep 0.25; done
+	pkill -KILL -x sen_server 2>/dev/null
+}
+stop() {
+	stop_server
 	[ -z "$WM" ] || kill "$WM" 2>/dev/null
 	[ -z "$XSERVER" ] || kill "$XSERVER" 2>/dev/null
 	[ -z "$COMPOSITOR" ] || kill "$COMPOSITOR" 2>/dev/null
@@ -146,6 +153,19 @@ fi
 UNKNOWN=$(grep -c 'unknown message' "$OUT/app.log")
 [ "$UNKNOWN" -lt 10 ] || fail "$UNKNOWN unknown messages: a message loop?"
 
-stop
+stop_server
 wait "$SERVER" 2>/dev/null
+SERVER=""
+
+# 6. the desktop's tray: a tray of its own on a D-Bus session of its own
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+if ! timeout 120 dbus-run-session -- python3 -I "$SCRIPT_DIR/tray-check.py" "$APP" "$OUT"; then
+	tail -20 "$OUT/tray-app.log"
+	pkill -x TrayExport 2>/dev/null
+	stop
+	echo "smoke ($BACKEND): FAIL: the tray"
+	exit 1
+fi
+pkill -x TrayExport 2>/dev/null
+stop
 echo "smoke ($BACKEND): PASS"
