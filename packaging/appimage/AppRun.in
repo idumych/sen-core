@@ -1,0 +1,23 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2026 SEN Labs e.U.
+#
+# The AppImage's entry point:
+#   SEN-*.AppImage              the server, in the foreground
+#   SEN-*.AppImage --settings   the settings window
+#   SEN-*.AppImage --info ...   the options of the server: --info, --check, --types, --version, ...
+#
+# Hokku finds its data next to libbe.so, so usr/share/cosmoe is the system's data folder and usr/bin its bin folder. The core
+# ontology is in usr/share/cosmoe/sen/ontologies as if a package had brought it, and the server runs sen_oni --update from
+# usr/bin when it starts, as on Haiku: it installs what is new there, and removes what is not there any more.
+HERE=$(dirname "$(readlink -f "$0")")
+export FONTCONFIG_FILE="$HERE/etc/fonts/fonts.conf"
+export TRANSLATORS="$HERE/usr/lib/addons/Translators"
+# (what sen_oni calls)
+export PATH="$HERE/usr/bin:$PATH"
+
+if [ "${1:-}" = --settings ]; then
+	shift
+	exec "$HERE/usr/bin/sen_settings" "$@"
+fi
+exec "$HERE/usr/bin/sen_server" "$@"

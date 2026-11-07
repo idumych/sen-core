@@ -1,0 +1,77 @@
+--- a/src/cpp/include/SenAbout.h
++++ b/src/cpp/include/SenAbout.h
+@@ -70,7 +70,8 @@
+ 	BAppFileInfo appInfo(&file);
+ 	bool hasVersion = file.InitCheck() == B_OK && appInfo.GetVersionInfo(&version, B_APP_VERSION_KIND) == B_OK;
+ 
+-	BString name(hasVersion && version.short_info[0] != '\0' ? version.short_info : info.ref.name);
++	const BPath appPath(&info.ref);	// (not ref.name: that is the full path on Cosmoe)
++	BString name(hasVersion && version.short_info[0] != '\0' ? version.short_info : appPath.Leaf());
+ 	BString number;
+ 	if (hasVersion)
+ 		number = VersionText(version);	// 0.1.0-beta.3: the stage and its count are in the version resource, as for the server
+--- a/src/cpp/include/SenEntityCard.h
++++ b/src/cpp/include/SenEntityCard.h
+@@ -80,14 +80,15 @@
+ 		if (type[0] == '\0' || !_FieldsOfTemplate(type, &fields))
+ 			_FieldsOfAttrInfo(attrInfo, &fields);
+ 
+-		fTitle = ref.name;
++		const BString fileName(BPath(&ref).Leaf());	// (not ref.name: that is the full path on Cosmoe)
++		fTitle = fileName;
+ 		fRows.clear();
+ 		for (const Field& field : fields) {
+ 			const ListConfig list = ListConfigOf(attrInfo, field.attribute.String());
+ 			BString text = _ValueText(node, field.attribute.String(), list);
+ 			if (text.IsEmpty())
+ 				continue;
+-			if (fTitle == ref.name && _IsTitleAttribute(field.attribute.String())) {
++			if (fTitle == fileName && _IsTitleAttribute(field.attribute.String())) {
+ 				fTitle = text;
+ 				continue;
+ 			}
+--- a/src/cpp/include/SenLookup.h
++++ b/src/cpp/include/SenLookup.h
+@@ -13,6 +13,7 @@
+ #include <MimeType.h>
+ #include <Node.h>
+ #include <NodeInfo.h>
++#include <Path.h>
+ #include <Query.h>
+ #include <String.h>
+ #include <Volume.h>
+@@ -23,7 +24,7 @@
+ 
+ /**
+  * @file SenLookup.h
+- * @brief Read the targets of the relations of a file without the SEN server (header only, Haiku only).
++ * @brief Read the targets of the relations of a file without the SEN server (header only, Haiku and Hokku).
+  *
+  * The relations are in the attributes of the files, so programs that only need to know where a relation leads (installers,
+  * scripts, tools that run before the server does) can follow it themselves: the targets of a file are the ids in its `SEN:TO`
+@@ -138,7 +139,8 @@
+ 		return std::string();
+ 
+ 	const std::string subtype = std::string(type.String()).substr(strlen(supertype.Type()) + 1);
+-	return subtype == ref.name ? std::string(type.String()) : std::string();
++	const BString fileName(BPath(&ref).Leaf());	// (not ref.name: that is the full path on Cosmoe)
++	return subtype == fileName.String() ? std::string(type.String()) : std::string();
+ }
+ 
+ /** @brief The name of a type for people (its short description: "Music album"); the type itself if it has none. */
+--- a/src/cpp/include/SenMessages.h
++++ b/src/cpp/include/SenMessages.h
+@@ -224,10 +224,10 @@
+ /** int32 in the settings: the most entities of a type that a plugin makes of one file (authors, actors, ...; default 10): 0 (None) to kMaxEntitiesLimit, which is "All" (no limit of
+  *  the user's: a plugin gets kMaxEntitiesInternal). Read it with sen::plugins::LoadSharedSettings(). */
+ inline constexpr char kMaxEntities[]           = "SEN:maxEntities";
+-inline constexpr int32 kMaxEntitiesDefault     = 10;
+-inline constexpr int32 kMaxEntitiesLimit       = 100;
++inline constexpr int32_t kMaxEntitiesDefault   = 10;
++inline constexpr int32_t kMaxEntitiesLimit     = 100;
+ /** what a plugin gets as the most entities when the setting is "All" (a number of its own so that a plugin never has to ask whether there is a limit) */
+-inline constexpr int32 kMaxEntitiesInternal    = 255;
++inline constexpr int32_t kMaxEntitiesInternal  = 255;
+ 
+ // ---- relations
+ /** the relations of a source: relation type names in a request, nested relation messages in a result */

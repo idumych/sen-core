@@ -41,3 +41,11 @@ examples/*
 *.hpkg
 package-build/
 .DS_Store
+
+# Linux packaging
+obj-cosmoe/
+.deps/
+.cosmoe/
+smoke/
+smoke-home.*/
+*.AppImage

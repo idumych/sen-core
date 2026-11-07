@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2026 SEN Labs e.U.
+#
+# The SEN server and its settings on Linux, with Hokku (the Haiku API as a library, a fork of Cosmoe). On Haiku it is Makefile.
+#   make -f Makefile.cosmoe COSMOE_ROOT=<Hokku>/usr SEN_HEADERS=<folder with sen/> ONI=<sen-oni>
+# packaging/appimage/fetch-deps.sh makes .deps/, the defaults for the last two.
+
+COSMOE_ROOT ?= /usr
+DEPS ?= .deps
+SEN_HEADERS ?= $(DEPS)/include
+ONI ?= $(DEPS)/sen-oni
+SENTO ?= $(DEPS)/sento
+
+ifeq ($(wildcard $(COSMOE_ROOT)/include/os/app/Application.h),)
+$(error COSMOE_ROOT=$(COSMOE_ROOT) is no Hokku: it has no include/os/app/Application.h)
+endif
+
+COSMOE_DIRS := config os os/add-ons/graphics os/app os/game os/interface os/kernel os/locale os/media \
+               os/net os/storage os/support os/translation os/be_apps/Tracker \
+               private/interface private/shared private/support posix
+SOURCE_DIRS := $(shell find src -type d)
+
+override CXXFLAGS += -O2 -std=c++20 -Wno-multichar -Wno-deprecated-copy -fPIC -DAPP_COSMOE -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL \
+	-isystem $(COSMOE_ROOT)/include $(addprefix -isystem $(COSMOE_ROOT)/include/,$(COSMOE_DIRS)) \
+	-I$(SEN_HEADERS) $(addprefix -I,$(SOURCE_DIRS))
+LIBS := -L$(COSMOE_ROOT)/lib -lbe -ltracker -ltranslation -lspdlog -lfmt -Wl,-rpath,'$$ORIGIN/../lib'
+# (the tools link only what they need from the same place)
+TOOL_LIBS := -L$(COSMOE_ROOT)/lib -lbe -Wl,-rpath,'$$ORIGIN/../lib'
+
+# the sources are those of the Makefiles that build them on Haiku
+SERVER_SRCS := $(shell sed -n '/^SRCS/,/^$$/p' Makefile | grep -oE 'src/[A-Za-z/_]+\.cpp')
+SETTINGS_SRCS := $(shell sed -n '/^SRCS/,/^$$/p' Makefile.settings | grep -oE 'src/[A-Za-z/_]+\.cpp')
+
+OBJ := obj-cosmoe
+SERVER_OBJS := $(SERVER_SRCS:%.cpp=$(OBJ)/%.o)
+SETTINGS_OBJS := $(SETTINGS_SRCS:%.cpp=$(OBJ)/%.o)
+
+.PHONY: all test-programs clean
+
+all: bin/sen_server bin/sen_settings bin/sen_mime
+
+test-programs: bin/relation-test
+
+bin/sen_server: $(SERVER_OBJS) $(OBJ)/sen_server.rsrc.o
+	@mkdir -p bin
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+bin/sen_settings: $(SETTINGS_OBJS) $(OBJ)/sen_settings.rsrc.o
+	@mkdir -p bin
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+# the MIME type installer of sen-oni, under the name of its package
+bin/sen_mime: $(ONI)/src/mime/App.cpp
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) -I$(ONI)/src/mime $(LDFLAGS) -o $@ $< $(TOOL_LIBS)
+
+# the tests of the relations, which talk to a running server (rpath for the Hokku it was built with)
+bin/relation-test: tests/vm/RelationTest.cpp
+	@mkdir -p bin
+	$(CXX) $(CXXFLAGS) -I$(SENTO)/tests -Itests/vm -o $@ $< -L$(COSMOE_ROOT)/lib -lbe -Wl,-rpath,$(abspath $(COSMOE_ROOT))/lib
+
+$(OBJ)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+# resources are a linked-in section with Cosmoe
+$(OBJ)/%.rsrc.o: src/resources/%.rdef
+	@mkdir -p $(OBJ)
+	$(CC) -E -x c - < $< 2>/dev/null | grep -av '^#' > $(OBJ)/$*.rdef
+	LD_LIBRARY_PATH=$(COSMOE_ROOT)/lib $(COSMOE_ROOT)/bin/rc -I src/resources -o $(OBJ)/$*.rsrc $(OBJ)/$*.rdef
+	cd $(OBJ) && ld -r -b binary $*.rsrc -o $*.rsrc.o
+	objcopy --rename-section .data=.cosmoe_rsrc --add-section .note.GNU-stack=/dev/null \
+		--set-section-flags .note.GNU-stack=noload,readonly $@
+
+clean:
+	rm -rf $(OBJ)
+	rm -f bin/sen_server bin/sen_settings bin/sen_mime bin/relation-test

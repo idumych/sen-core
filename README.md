@@ -1,3 +1,8 @@
+> **This is the `hokku` branch of a fork,** with what it takes to run SEN on Linux: AppImages for x86_64 and aarch64, built with
+> [Hokku](https://github.com/idumych/hokku), the Haiku API as a library. It is based on `v1.0.0-beta.5`.
+> See [`packaging/appimage`](packaging/appimage). What doesn't work there yet: plugins (no SENSEI), the settings form (no
+> Shoji), the menu in the tray (it needs Hokku's Deskbar), and finding copies of a file that another program made (`cp -a`).
+
 <p align="center">
   <img src="images/sen-core_logo.jpg" alt="SEN Core Logo" width=360"/>
 </p>
